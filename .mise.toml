@@ -1,0 +1,9 @@
+# Mise (formerly asdf) version manager configuration
+# Specifies which runtimes StormKit should install for this project.
+# Using Python (no libatomic dependency like Node.js has in StormKit build env)
+
+[tools]
+python = "3.11"
+
+[env]
+PYTHONUNBUFFERED = "1"

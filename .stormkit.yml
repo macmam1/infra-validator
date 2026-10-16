@@ -1,8 +1,11 @@
+# StormKit deployment configuration
 name: infra-validator
 environments:
   production:
     branch: sshx-test
     run:
-      command: node server.js
+      command: python3 server.py --port 20127
     build:
       command: echo "no build needed"
+    install:
+      command: echo "no install needed"
