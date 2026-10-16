@@ -1,42 +1,35 @@
 #!/bin/bash
 # infra-validator startup script
-# For StormKit deployments — debugs environment and starts server
-
-set -e
+# Tries multiple ports to find the one Stormkit proxies to
 
 echo "================================================"
-echo "infra-validator v1.0.0 — Startup Script"
+echo "infra-validator v1.0.0 — Startup Script (Docker)"
 echo "================================================"
 echo ""
 
-# Print all env vars that might relate to port or configuration
-echo "=== Port-related env vars ==="
-env | grep -iE "PORT|HOST|SK_|STORMKIT" || true
+# Print key env vars
+echo "=== Environment ==="
+echo "PORT=$PORT"
+echo "STORMKIT_PORT=$STORMKIT_PORT"
+echo "PWD=$(pwd)"
+echo "PATH=$PATH"
 echo ""
 
 # Find Python
-echo "=== Finding Python ==="
-for cmd in python3 python /usr/local/bin/python3; do
-  if command -v "$cmd" 2>/dev/null; then
-    echo "✅ Found: $cmd -> $(which $cmd 2>/dev/null)"
-    $cmd --version 2>&1 || true
-    break
-  fi
-done
-echo ""
-
-# Find the working directory
-echo "=== Working directory ==="
-pwd
+echo "=== Python ==="
+which python3
+python3 --version
 echo ""
 
 # List files
-echo "=== Files ==="
-ls -la *.py *.sh 2>/dev/null || echo "No Python/shell files in current dir"
+echo "=== Files in /app ==="
+ls -la /app/
 echo ""
 
-# Determine port
+# Determine port - try all sources
 PORT_TO_USE="${PORT:-20127}"
+echo "=== Port Selection ==="
+echo "PORT env: ${PORT:-not set}"
 echo "Using port: $PORT_TO_USE"
 echo ""
 

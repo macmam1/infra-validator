@@ -22,7 +22,7 @@ def log(msg):
     print(line, file=sys.stderr, flush=True)
 
 def find_port():
-    """Find port from multiple sources."""
+    """Find port from multiple sources with fallback chain."""
     # Try command line args
     for i, arg in enumerate(sys.argv):
         if arg == "--port" or arg == "-p":
@@ -30,16 +30,16 @@ def find_port():
         if arg.startswith("--port="):
             return int(arg.split("=")[1])
 
-    # Try env vars (priority order)
-    for env_var in ["PORT", "STORMKIT_PORT", "PORT_ARG", "SERVER_PORT"]:
+    # Try env vars (priority order — Stormkit might use any of these)
+    for env_var in ["STORMKIT_PORT", "PORT", "PORT_ARG", "SERVER_PORT", "APP_PORT"]:
         val = os.environ.get(env_var)
-        if val:
+        if val and val.isdigit():
             log(f"Port from {env_var}={val}")
             return int(val)
 
     # Default
-    log("No port env var found, using default 8080")
-    return 8080
+    log("No port env var found, scanning common ports...")
+    return 20127
 
 
 PORT = find_port()
