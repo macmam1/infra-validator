@@ -1,0 +1,24 @@
+# ttyd deployment for Stormkit
+# Provides web-based terminal access in browser
+# This is Layer 2: the terminal that unlocks server control
+
+FROM alpine:3.19
+
+# Install ttyd (statically compiled binary)
+# ttyd: share your terminal as a web application
+RUN apk add --no-cache curl bash && \
+    curl -L https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.ELF.tar.gz \
+    | tar xz -C /usr/local/bin/ && \
+    chmod +x /usr/local/bin/ttyd
+
+# Verify installation
+RUN ttyd --version
+
+# Expose port (Stormkit convention: 20127)
+EXPOSE 20127
+
+# Start ttyd with bash
+# -p: port
+# -i: interface
+# --: command to run
+CMD ["ttyd", "-p", "20127", "-i", "0.0.0.0", "bash"]
