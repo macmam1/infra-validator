@@ -1,0 +1,23 @@
+# ttyd web terminal — SnapDeploy deployment
+# Layer 2: Provides browser-based terminal access
+# Deploy to: https://snapdeploy.dev/register
+
+FROM alpine:3.19
+
+# Install ttyd + useful tools
+RUN apk add --no-cache \
+    curl bash nano \
+    iproute2 net-tools procps \
+    openssh-client rsync \
+    && curl -L https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 \
+    -o /usr/local/bin/ttyd && chmod +x /usr/local/bin/ttyd
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
+    CMD curl -sf http://localhost:20127/ || exit 1
+
+EXPOSE 20127
+
+# Start ttyd terminal
+# Access: https://<your-app>.snapdeploy.app/terminal
+CMD ["ttyd", "-p", "20127", "-i", "0.0.0.0", "bash"]

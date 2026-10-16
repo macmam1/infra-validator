@@ -35,7 +35,16 @@ This database tracks all evaluated platforms and their compatibility with VPN no
 | Railway | $1/month (not truly free) |
 | Fly.io | Credit card required |
 
-## ⚠️ Under Review (Need More Testing)
+## ⚠️ در حال بررسی (آماده برای تست)
+
+| Platform | RAM | دسترسی | Sleep؟ | وضعیت | نکات |
+|---|---|---|---|---|---|
+| **SnapDeploy** | 512MB (free) | Docker (GitHub) | ✅ 15min idle | ⏳ **آماده — منتظر API key** | ✅ Port auto-detect, Sprint Pack $1/24h, MCP connector |
+| **Render** | 512MB | Docker + web shell | ✅ 15min idle | ⏳ | code-server known to work |
+| **Back4App** | 256MB | Docker | ✅ | ⚠️ | RAM محدود |
+| **Zeabur** | ? | Docker | ✅ | ⚠️ | Under review |
+| **Qoddi** | ? | Docker | ? | ⚠️ | User-submitted |
+| **Caasify** | ? | Docker | ? | ⚠️ | Free until 2027, no CC |
 
 | Platform | Notes |
 |---|---|

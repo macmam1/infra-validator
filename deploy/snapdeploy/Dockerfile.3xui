@@ -1,0 +1,27 @@
+# 3x-ui VPN panel — SnapDeploy deployment
+# Layer 3: VPN panel with Xray backend
+# Requires: 512MB+ RAM, Always-On (Sprint Pack $1/24h or keep-alive)
+
+FROM alpine:3.19
+
+# Install required packages
+RUN apk add --no-cache \
+    bash curl wget git \
+    openssl iptables ip6tables \
+    iproute2 net-tools procps \
+    libcap iptables \
+    && curl -L https://raw.githubusercontent.com/cutelua/3x-ui/main/install.sh \
+    -o /tmp/3xui-install.sh && chmod +x /tmp/3xui-install.sh
+
+# Create data directory for 3x-ui
+RUN mkdir -p /data/3x-ui
+
+# Expose 3x-ui default ports
+# - 2053: Vmess/Vless/Trojan
+# - 2052: Vmess/Vless/Trojan (HTTP)
+# - 80: Reality/Redirect
+EXPOSE 2053 2052 80 443
+
+# Start 3x-ui panel
+# Default credentials: admin / admin (change after first login)
+CMD ["/tmp/3xui-install.sh", "/data/3x-ui", "2053"]
