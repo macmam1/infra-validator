@@ -1,0 +1,11 @@
+# Node monitor configuration
+service: node-monitor
+version: "1.0"
+monitoring:
+  health_check_interval: 30
+  diagnostics_token: ${MONITOR_TOKEN}
+network:
+  ssh_enabled: true
+  tunnel_mode: websocket
+logging:
+  level: info
