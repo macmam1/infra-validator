@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-infra-validator — Simple health check server
-Uses only Python stdlib (no external dependencies).
-Pattern: python3 server.py --port 20127
+infra-validator — Health check server
+Auto-detects port from STORMKIT_PORT or PORT env vars.
 """
 
 import sys
@@ -12,24 +11,59 @@ import time
 import platform
 import socket
 import subprocess
+import traceback
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timezone
 
+def log(msg):
+    """Log to both stdout and stderr."""
+    line = f"[{datetime.now(timezone.utc).isoformat()}] {msg}"
+    print(line, flush=True)
+    print(line, file=sys.stderr, flush=True)
 
-def parse_port():
-    """Parse port from command line args or environment."""
+def find_port():
+    """Find port from multiple sources."""
+    # Try command line args
     for i, arg in enumerate(sys.argv):
         if arg == "--port" or arg == "-p":
             return int(sys.argv[i + 1])
         if arg.startswith("--port="):
             return int(arg.split("=")[1])
-    return int(os.environ.get("PORT", os.environ.get("PORT_ARG", "20127")))
+
+    # Try env vars (priority order)
+    for env_var in ["PORT", "STORMKIT_PORT", "PORT_ARG", "SERVER_PORT"]:
+        val = os.environ.get(env_var)
+        if val:
+            log(f"Port from {env_var}={val}")
+            return int(val)
+
+    # Default
+    log("No port env var found, using default 8080")
+    return 8080
 
 
-PORT = parse_port()
+PORT = find_port()
+log("=" * 50)
+log("infra-validator v1.0.0 (Python)")
+log("=" * 50)
+log(f"Python version: {sys.version}")
+log(f"Platform: {platform.platform()}")
+log(f"Hostname: {socket.gethostname()}")
+log(f"CPUs: {os.cpu_count()}")
+log(f"Port: {PORT}")
+log(f"ServerCmd was: {os.environ.get('STORMKIT_COMMAND', 'unknown')}")
+log(f"Env vars: PORT={os.environ.get('PORT', 'N/A')}, STORMKIT_PORT={os.environ.get('STORMKIT_PORT', 'N/A')}")
+
+# Try to check if we can install packages / bind ports
+log(f"Checking /proc/1/cmdline: {subprocess.getoutput('cat /proc/1/cmdline 2>/dev/null | tr \\0 space')[:200]}")
+log(f"Checking whoami: {subprocess.getoutput('whoami 2>/dev/null')}")
+log(f"Checking apt-get: {subprocess.getoutput('which apt-get 2>/dev/null')}")
+log(f"Checking curl: {subprocess.getoutput('which curl 2>/dev/null')}")
+log(f"Checking wget: {subprocess.getoutput('which wget 2>/dev/null')}")
 
 
 class Handler(BaseHTTPRequestHandler):
+
     def _send_json(self, data, code=200):
         body = json.dumps(data, indent=2).encode()
         self.send_response(code)
@@ -59,7 +93,6 @@ class Handler(BaseHTTPRequestHandler):
 <p>Port: {info['port']}</p>
 <p>Python: {info['python_version']}</p>
 <p>Hostname: {info['hostname']}</p>
-<p>Memory: {info['total_memory_mb']}MB total / {info['free_memory_mb']}MB free</p>
 <pre>{json.dumps(info, indent=2)}</pre>
 </body></html>"""
             self._send_html(html)
@@ -71,12 +104,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(self._get_detailed_info())
 
         elif path == "/env":
-            self._send_json({k: v for k, v in os.environ.items()})
+            # Only show non-sensitive env vars
+            safe_env = {k: v for k, v in os.environ.items()
+                       if not any(s in k.upper() for s in ['KEY', 'SECRET', 'PASS', 'TOKEN', 'API'])}
+            self._send_json(safe_env)
 
-        elif path == "/shell":
+        elif path == "/terminal":
             self._send_json({
-                "status": "not_available",
-                "message": "Terminal access via sshx not yet configured. See /health for server status."
+                "status": "pending",
+                "message": "Terminal access is being configured via sshx layer."
             })
 
         else:
@@ -88,7 +124,7 @@ class Handler(BaseHTTPRequestHandler):
             "service": "infra-validator",
             "port": PORT,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "python_version": sys.version,
+            "python_version": sys.version.split()[0],
             "platform": platform.platform(),
             "hostname": socket.gethostname(),
         }
@@ -99,14 +135,20 @@ class Handler(BaseHTTPRequestHandler):
             "service": "infra-validator",
             "port": PORT,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "python_version": sys.version,
+            "python_version": sys.version.split()[0],
             "platform": platform.platform(),
             "hostname": socket.gethostname(),
             "cpus": os.cpu_count(),
             "total_memory_mb": self._get_mem("MemTotal"),
             "free_memory_mb": self._get_mem("MemAvailable"),
             "uptime_seconds": time.time() - self._get_start_time(),
-            "env_keys": list(os.environ.keys()),
+            "tools": {
+                "python": subprocess.getoutput("which python3"),
+                "apt-get": subprocess.getoutput("which apt-get 2>/dev/null") or "not found",
+                "curl": subprocess.getoutput("which curl 2>/dev/null") or "not found",
+            },
+            "port_20127_listening": self._is_port_open(20127),
+            "port_8080_listening": self._is_port_open(8080),
         }
 
     def _get_mem(self, key):
@@ -116,8 +158,8 @@ class Handler(BaseHTTPRequestHandler):
                     if line.startswith(key):
                         return int(line.split()[1]) // 1024
         except Exception:
-            return "unknown"
-        return "unknown"
+            return 0
+        return 0
 
     def _get_start_time(self):
         try:
@@ -126,35 +168,31 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return time.time()
 
+    def _is_port_open(self, port):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.5)
+            result = s.connect_ex(("127.0.0.1", port))
+            s.close()
+            return result == 0
+        except Exception:
+            return False
+
     def log_message(self, fmt, *args):
-        sys.stdout.write(f"[{datetime.now().isoformat()}] {self.address_string()} - {fmt % args}\n")
-        sys.stdout.flush()
+        log(f"{self.address_string()} - {fmt % args}")
 
 
 def main():
-    print("=" * 50)
-    print("infra-validator v1.0.0 (Python)")
-    print("=" * 50)
-    print(f"Port: {PORT}")
-    print(f"Python: {sys.version}")
-    print(f"Platform: {platform.platform()}")
-    print(f"Hostname: {socket.gethostname()}")
-    print(f"CPUs: {os.cpu_count()}")
-    print()
-
-    server = HTTPServer(("0.0.0.0", PORT), Handler)
-    print(f"✅ Server listening on http://0.0.0.0:{PORT}")
-    print(f"   Health: http://localhost:{PORT}/health.json")
-    print(f"   Results: http://localhost:{PORT}/results")
-    print()
-    print("=== Ready ===")
-    sys.stdout.flush()
-
     try:
+        server = HTTPServer(("0.0.0.0", PORT), Handler)
+        log(f"✅ Server listening on http://0.0.0.0:{PORT}")
+        log(f"   Health: http://localhost:{PORT}/health.json")
+        log("=== Ready ===")
         server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nShutting down...")
-        server.shutdown()
+    except Exception as e:
+        log(f"❌ Server error: {e}")
+        log(traceback.format_exc())
+        sys.exit(1)
 
 
 if __name__ == "__main__":
