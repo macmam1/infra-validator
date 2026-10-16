@@ -1,104 +1,46 @@
 #!/bin/bash
-# ═══════════════════════════════════════════════════════════
-# infra-validator — Layer 2 Terminal Deployment (ttyd)
-# ═══════════════════════════════════════════════════════════
-# This script is the serverCmd for Stormkit.
-# It downloads ttyd (a static binary) and starts a web terminal.
-# ttyd = "share your terminal as a web application"
-#
-# Why ttyd?
-# - Small (~5MB) statically-compiled binary
-# - No Python/Node.js/GCC needed
-# - Works on any Linux x86_64 platform
-# - Provides terminal access via browser
-#
-# From this terminal, you can install VPN software (Layer 3):
-#   bash <(curl -L https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh)
-#   or:
-#   bash <(curl -L https://raw.githubusercontent.com/cutelua/3x-ui/main/install.sh)
-# ═══════════════════════════════════════════════════════════
+# infra-validator — Runtime diagnostic script
+# Writes diagnostic files AND starts a server
 
-set -e
+# Write diagnostic info to files
+echo "=== Runtime diagnostics ===" > /app/diag.txt
+echo "Date: $(date)" >> /app/diag.txt
+echo "Whoami: $(whoami 2>/dev/null || echo 'unknown')" >> /app/diag.txt
+echo "PWD: $(pwd)" >> /app/diag.txt
+echo "PORT env: ${PORT:-not set}" >> /app/diag.txt
+echo "PATH: $PATH" >> /app/diag.txt
 
-echo "================================================"
-echo "infra-validator v1.0.0 — ttyd Terminal Server"
-echo "================================================"
-echo ""
+# Check what tools are available
+for tool in node python3 python curl wget nc socat bash sh; do
+  echo "Tool $tool: $(which $tool 2>/dev/null || echo 'NOT FOUND')" >> /app/diag.txt
+done
 
-# Detect architecture
-ARCH=$(uname -m)
-echo "Architecture: $ARCH"
+# Write a marker file
+echo "Runtime is working! Files in current dir:" > /app/marker.html
+ls -la >> /app/marker.html
 
-# Detect OS
-OS=$(uname -s)
-echo "OS: $OS"
+# Start server on multiple ports
+for port in 8080 20127 3000 5000; do
+  echo "Trying port $port..." >> /app/diag.txt
+done
 
-# Print working directory
-echo "Working directory: $(pwd)"
-echo "Available tools:"
-echo "  curl: $(which curl 2>/dev/null || echo 'not found')"
-echo "  wget: $(which wget 2>/dev/null || echo 'not found')"
-echo "  bash: $(which bash 2>/dev/null || echo 'not found')"
-echo ""
-
-# Download ttyd binary
-TTYD_VERSION="1.7.7"
-TTYD_BIN="/tmp/ttyd"
-
-if [ ! -f "$TTYD_BIN" ]; then
-    echo "Downloading ttyd v${TTYD_VERSION}..."
-    
-    # Determine the correct binary for our architecture
-    case "$ARCH" in
-        x86_64|amd64)
-            TTYD_URL="https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64"
-            ;;
-        aarch64|arm64)
-            TTYD_URL="https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.aarch64"
-            ;;
-        *)
-            echo "Unsupported architecture: $ARCH"
-            exit 1
-            ;;
-    esac
-    
-    # Try curl first, then wget
-    if command -v curl &>/dev/null; then
-        curl -L -o "$TTYD_BIN" "$TTYD_URL"
-    elif command -v wget &>/dev/null; then
-        wget -O "$TTYD_BIN" "$TTYD_URL"
-    else
-        echo "Neither curl nor wget available!"
-        exit 1
-    fi
-    
-    chmod +x "$TTYD_BIN"
-    echo "✅ ttyd downloaded"
+# Try Node.js first, then bash-based server as fallback
+if command -v node &>/dev/null; then
+  echo "Node found, using Node.js server" >> /app/diag.txt
+  echo "Node version: $(node --version)" >> /app/diag.txt
+  exec node /app/server.js --port 20127
 else
-    echo "ttyd already exists at $TTYD_BIN"
+  echo "Node not found, trying bash built-in" >> /app/diag.txt
+  # Try nc-based server
+  if command -v nc &>/dev/null; then
+    while true; do
+      echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHELLO FROM NC" | nc -l -p 20127
+    done
+  elif command -v python3 &>/dev/null; then
+    exec python3 /app/server.py --port 20127
+  else
+    # No tools available - just keep alive
+    echo "No server tools available, keeping process alive" >> /app/diag.txt
+    while true; do sleep 60; done
+  fi
 fi
-
-# Verify ttyd
-echo "ttyd version:"
-"$TTYD_BIN" --version 2>&1 || echo "Version check failed (may still work)"
-echo ""
-
-# Determine port
-# Stormkit might set PORT env var or expect port 20127
-PORT_TO_USE="${PORT:-20127}"
-echo "Starting ttyd on port $PORT_TO_USE"
-echo ""
-
-# Start ttyd with bash
-# ttyd options:
-#   -p: port to listen on
-#   -i: network interface to bind
-#   --wsgi: enable WSGI mode (for proxy compatibility)
-echo "================================================"
-echo "Starting web terminal at: https://\${HOST}\${PORT:-$PORT_TO_USE}"
-echo "================================================"
-
-# Start ttyd
-# If port 20127 doesn't work, Stormkit might use a different port
-# Try with PORT env var first, fallback to 20127
-exec "$TTYD_BIN" -p "$PORT_TO_USE" -i 0.0.0.0 bash
