@@ -1,20 +1,13 @@
-# infra-validator — Minimal Dockerfile for StormKit
-# Test: if this works, the Docker build is successful and Stormkit proxies traffic correctly
+# This Dockerfile is kept for platforms that support Docker (WispByte, etc.)
+# Stormkit does not appear to use Docker for HTTP routing.
+# See start.sh for the primary deployment method.
 
-FROM python:3.11-slim
+FROM alpine:3.19
 
-# Install libatomic1 (fixes Node.js libatomic issue if needed later)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends libatomic1 curl && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl bash libc6-compat && \
+    curl -L https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.ELF.tar.gz \
+    | tar xz -C /usr/local/bin/ && \
+    chmod +x /usr/local/bin/ttyd
 
-WORKDIR /app
-
-# Copy server
-COPY server.py /app/server.py
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
-
-# Start with shell script for debugging
-# The script will try multiple ports
-CMD ["bash", "/app/start.sh"]
+EXPOSE 8080 20127
+CMD ["ttyd", "-p", "20127", "-i", "0.0.0.0", "bash"]
