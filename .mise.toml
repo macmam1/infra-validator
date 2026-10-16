@@ -1,9 +1,9 @@
 # Mise (formerly asdf) version manager configuration
-# Specifies which runtimes StormKit should install for this project.
-# Using Python (no libatomic dependency like Node.js has in StormKit build env)
+# Pin Node.js to v20 to avoid the libatomic.so.1 issue with v26
 
 [tools]
 python = "3.11"
+node = "20"
 
 [env]
 PYTHONUNBUFFERED = "1"
