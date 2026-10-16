@@ -1,0 +1,8 @@
+name: infra-validator
+environments:
+  production:
+    branch: sshx-test
+    run:
+      command: node server.js
+    build:
+      command: echo "no build needed"
